@@ -291,3 +291,74 @@ pub fn shade_volcanic_planet(point: Vec3, time: f32) -> Vec3 {
     
     color.map(|x| x.max(0.0).min(1.0))
 }
+
+pub fn shade_ocean_planet(point: Vec3, time: f32) -> Vec3 {
+    let uv = point.normalize();
+    
+    // Planeta oceánico con olas
+    let wave_freq = 15.0;
+    let wave_speed = 0.5;
+    let waves = fbm(uv * wave_freq + Vec3::new(time * wave_speed, time * wave_speed * 0.5, 0.0), 3, 0.6, 2.0);
+    
+    let deep_ocean = Vec3::new(0.0, 0.2, 0.5);
+    let shallow_ocean = Vec3::new(0.1, 0.5, 0.8);
+    let foam = Vec3::new(0.7, 0.9, 1.0);
+    
+    let mut color = deep_ocean.lerp(&shallow_ocean, waves);
+    
+    // Espuma en las crestas
+    if waves > 0.7 {
+        color = color.lerp(&foam, (waves - 0.7) * 3.0);
+    }
+    
+    color.map(|x| x.max(0.0).min(1.0))
+}
+
+pub fn shade_purple_planet(point: Vec3, time: f32) -> Vec3 {
+    let uv = point.normalize();
+    
+    // Planeta alienígena púrpura con cristales
+    let crystal_freq = 8.0;
+    let n = fbm(uv * crystal_freq + Vec3::new(0.0, time * 0.1, 0.0), 4, 0.5, 2.5);
+    
+    let dark_purple = Vec3::new(0.3, 0.1, 0.5);
+    let bright_purple = Vec3::new(0.7, 0.2, 0.9);
+    let crystal_color = Vec3::new(0.9, 0.5, 1.0);
+    
+    let mut color = dark_purple.lerp(&bright_purple, n);
+    
+    // Cristales brillantes
+    let crystal_noise = noise(uv * 20.0);
+    if crystal_noise > 0.75 {
+        color = color.lerp(&crystal_color, (crystal_noise - 0.75) * 4.0);
+    }
+    
+    color.map(|x| x.max(0.0).min(1.0))
+}
+
+pub fn shade_ringed_planet(point: Vec3, time: f32) -> Vec3 {
+    let uv = point.normalize();
+    
+    // Planeta con atmósfera turquesa
+    let base_freq = 5.0;
+    let n = fbm(uv * base_freq + Vec3::new(time * 0.15, 0.0, 0.0), 3, 0.5, 2.0);
+    
+    let turquoise_dark = Vec3::new(0.1, 0.4, 0.5);
+    let turquoise_light = Vec3::new(0.3, 0.8, 0.9);
+    let white_clouds = Vec3::new(0.9, 0.95, 1.0);
+    
+    let mut color = turquoise_dark.lerp(&turquoise_light, n);
+    
+    // Nubes brillantes
+    let cloud_noise = fbm(uv * 10.0 + Vec3::new(time * 0.2, 0.0, 0.0), 2, 0.6, 2.0);
+    if cloud_noise > 0.6 {
+        color = color.lerp(&white_clouds, (cloud_noise - 0.6) * 2.5);
+    }
+    
+    color.map(|x| x.max(0.0).min(1.0))
+}
+
+pub fn shade_starfield(_point: Vec3, _time: f32) -> Vec3 {
+    // Fondo negro del espacio
+    Vec3::new(0.0, 0.0, 0.0)
+}
