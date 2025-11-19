@@ -41,7 +41,7 @@ struct Camera {
 impl Camera {
     fn new() -> Self {
         Self {
-            yaw: 150.0, // Cámara directamente detrás de la nave
+            yaw: 62.0, // Cámara directamente detrás de la nave
             pitch: 10.0, // Ángulo de elevación suave
             distance: 5.0, // Distancia por defecto (tercera persona)
             min_distance: 1.5, // Zoom mínimo para ver la nave completa
