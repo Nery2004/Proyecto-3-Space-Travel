@@ -15,7 +15,8 @@ use vertex::Vertex;
 use obj::Obj;
 use triangle::triangle;
 use shaders::{vertex_shader, shade_star, shade_rocky, shade_gas_giant, shade_spaceship, 
-              shade_ice_planet, shade_desert_planet, shade_volcanic_planet};
+              shade_ice_planet, shade_desert_planet, shade_volcanic_planet,
+              shade_ocean_planet, shade_purple_planet, shade_ringed_planet};
 
 const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
@@ -40,8 +41,8 @@ struct Camera {
 impl Camera {
     fn new() -> Self {
         Self {
-            yaw: 45.0, // Ángulo inicial alrededor de la nave
-            pitch: 20.0, // Ángulo de elevación inicial
+            yaw: 150.0, // Cámara directamente detrás de la nave
+            pitch: 10.0, // Ángulo de elevación suave
             distance: 5.0, // Distancia por defecto (tercera persona)
             min_distance: 1.5, // Zoom mínimo para ver la nave completa
             max_distance: 8.0, // Máximo zoom out reducido
@@ -224,6 +225,9 @@ fn render_model(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertices: &[
                     4 => shade_ice_planet(fragment.vertex_position, uniforms.time),
                     5 => shade_desert_planet(fragment.vertex_position, uniforms.time),
                     6 => shade_volcanic_planet(fragment.vertex_position, uniforms.time),
+                    7 => shade_ocean_planet(fragment.vertex_position, uniforms.time),
+                    8 => shade_purple_planet(fragment.vertex_position, uniforms.time),
+                    9 => shade_ringed_planet(fragment.vertex_position, uniforms.time),
                     _ => Vec3::new(0.5, 0.5, 0.5), // Gris por defecto
                 };
 
@@ -239,9 +243,56 @@ fn render_model(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertices: &[
     }
 }
 
+fn render_starfield(framebuffer: &mut Framebuffer, time: f32) {
+    use std::f32::consts::PI;
+    let width = framebuffer.width;
+    let height = framebuffer.height;
+    
+    // Estrellas fijas
+    for i in 0..800 {
+        let seed = i as f32 * 12.9898;
+        let x = ((seed.sin() * 43758.5453).fract() * width as f32) as usize;
+        let y = (((seed * 1.234).cos() * 43758.5453).fract() * height as f32) as usize;
+        
+        if x < width && y < height {
+            let brightness = ((seed * 2.345).sin() * 0.5 + 0.5) * 255.0;
+            let b = brightness as u32;
+            let color = (b << 16) | (b << 8) | b;
+            framebuffer.set_current_color(color);
+            framebuffer.point(x, y, 0.0);
+        }
+    }
+    
+    // Galaxias distantes
+    for i in 0..5 {
+        let seed = i as f32 * 7.321;
+        let cx = ((seed.sin() * 43758.5453).fract() * width as f32) as i32;
+        let cy = (((seed * 3.456).cos() * 43758.5453).fract() * height as f32) as i32;
+        let rotation = time * 0.1 + seed;
+        
+        // Espiral de galaxia
+        for j in 0..100 {
+            let angle = j as f32 * 0.3 + rotation;
+            let radius = (j as f32 * 0.5).sqrt() * 3.0;
+            let x = cx + (angle.cos() * radius) as i32;
+            let y = cy + (angle.sin() * radius) as i32;
+            
+            if x >= 0 && x < width as i32 && y >= 0 && y < height as i32 {
+                let intensity = (1.0 - j as f32 / 100.0) * 150.0;
+                let r = (intensity * 0.8) as u32;
+                let g = (intensity * 0.6) as u32;
+                let b = (intensity * 1.0) as u32;
+                let color = (r << 16) | (g << 8) | b;
+                framebuffer.set_current_color(color);
+                framebuffer.point(x as usize, y as usize, 0.0);
+            }
+        }
+    }
+}
+
 fn main() {
     let mut window = Window::new(
-        "Lab 5 - Sistema Solar (WASD: mover, Space/Shift: arriba/abajo, Mouse: rotar cámara)",
+        "Proyecto 3 - Space Travel (WASD: mover nave, Click derecho: rotar cámara, Scroll: zoom)",
         WIDTH,
         HEIGHT,
         WindowOptions::default(),
@@ -268,12 +319,15 @@ fn main() {
 
     println!("Controles:");
     println!("  WASD: Mover nave");
-    println!("  Click derecho + Mouse: Rotar cámara alrededor de la nave");
     println!("  Scroll: Zoom in/out (primera/tercera persona)");
     println!("  ESC: Salir");
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         framebuffer.clear();
+        
+        // Renderizar fondo estrellado
+        render_starfield(&mut framebuffer, time);
+        
         time += 0.01;
 
         // Spaceship movement controls
@@ -284,21 +338,6 @@ fn main() {
 
         // Actualizar animación de la nave
         spaceship.update_animation();
-
-        // Mouse camera control - solo cuando se presiona botón derecho
-        if window.get_mouse_down(minifb::MouseButton::Right) {
-            if let Some((mx, my)) = window.get_mouse_pos(MouseMode::Discard) {
-                if let Some((last_x, last_y)) = last_mouse_pos {
-                    let delta_x = mx - last_x;
-                    let delta_y = my - last_y;
-                    camera.update_rotation(delta_x, delta_y);
-                }
-                last_mouse_pos = Some((mx, my));
-            }
-        } else {
-            // Resetear posición del mouse cuando se suelta el botón
-            last_mouse_pos = None;
-        }
 
         // Scroll wheel zoom control
         if let Some(scroll) = window.get_scroll_wheel() {
@@ -382,14 +421,14 @@ fn main() {
 
         // Render Desert Planet (orbiting)
         let desert_angle = time * 0.35;
-        let desert_orbit_radius = 6.5;
+        let desert_orbit_radius = 32.0;
         let desert_pos = Vec3::new(
             (desert_angle + PI).cos() * desert_orbit_radius,
             0.2,
             (desert_angle + PI).sin() * desert_orbit_radius,
         );
         let desert_rotation = Vec3::new(0.0, time * 0.6, 0.0);
-        let desert_model = create_model_matrix(desert_pos, 0.6, desert_rotation);
+        let desert_model = create_model_matrix(desert_pos, 3.0, desert_rotation);
         let desert_uniforms = Uniforms {
             model_matrix: desert_model,
             view_matrix,
@@ -402,14 +441,14 @@ fn main() {
 
         // Render Volcanic Planet (orbiting)
         let volcanic_angle = time * 0.4;
-        let volcanic_orbit_radius = 14.0;
+        let volcanic_orbit_radius = 70.0;
         let volcanic_pos = Vec3::new(
             (volcanic_angle + PI * 1.5).cos() * volcanic_orbit_radius,
             -0.5,
             (volcanic_angle + PI * 1.5).sin() * volcanic_orbit_radius,
         );
         let volcanic_rotation = Vec3::new(0.0, time * 0.7, 0.0);
-        let volcanic_model = create_model_matrix(volcanic_pos, 0.9, volcanic_rotation);
+        let volcanic_model = create_model_matrix(volcanic_pos, 4.5, volcanic_rotation);
         let volcanic_uniforms = Uniforms {
             model_matrix: volcanic_model,
             view_matrix,
@@ -419,6 +458,66 @@ fn main() {
             shader_type: 6, // Volcanic planet shader
         };
         render_model(&mut framebuffer, &volcanic_uniforms, &planet_vertices, &planet_indices);
+
+        // Render Ocean Planet (orbiting)
+        let ocean_angle = time * 0.28;
+        let ocean_orbit_radius = 45.0;
+        let ocean_pos = Vec3::new(
+            (ocean_angle + PI * 0.25).cos() * ocean_orbit_radius,
+            1.0,
+            (ocean_angle + PI * 0.25).sin() * ocean_orbit_radius,
+        );
+        let ocean_rotation = Vec3::new(0.0, time * 0.45, 0.0);
+        let ocean_model = create_model_matrix(ocean_pos, 3.8, ocean_rotation);
+        let ocean_uniforms = Uniforms {
+            model_matrix: ocean_model,
+            view_matrix,
+            projection_matrix,
+            viewport_matrix,
+            time,
+            shader_type: 7, // Ocean planet shader
+        };
+        render_model(&mut framebuffer, &ocean_uniforms, &planet_vertices, &planet_indices);
+
+        // Render Purple Alien Planet (orbiting)
+        let purple_angle = time * 0.2;
+        let purple_orbit_radius = 55.0;
+        let purple_pos = Vec3::new(
+            (purple_angle + PI * 0.75).cos() * purple_orbit_radius,
+            -1.2,
+            (purple_angle + PI * 0.75).sin() * purple_orbit_radius,
+        );
+        let purple_rotation = Vec3::new(0.0, time * 0.55, 0.0);
+        let purple_model = create_model_matrix(purple_pos, 4.2, purple_rotation);
+        let purple_uniforms = Uniforms {
+            model_matrix: purple_model,
+            view_matrix,
+            projection_matrix,
+            viewport_matrix,
+            time,
+            shader_type: 8, // Purple planet shader
+        };
+        render_model(&mut framebuffer, &purple_uniforms, &planet_vertices, &planet_indices);
+
+        // Render Ringed Turquoise Planet (orbiting)
+        let ringed_angle = time * 0.18;
+        let ringed_orbit_radius = 65.0;
+        let ringed_pos = Vec3::new(
+            (ringed_angle + PI * 1.25).cos() * ringed_orbit_radius,
+            0.8,
+            (ringed_angle + PI * 1.25).sin() * ringed_orbit_radius,
+        );
+        let ringed_rotation = Vec3::new(0.0, time * 0.35, 0.0);
+        let ringed_model = create_model_matrix(ringed_pos, 5.0, ringed_rotation);
+        let ringed_uniforms = Uniforms {
+            model_matrix: ringed_model,
+            view_matrix,
+            projection_matrix,
+            viewport_matrix,
+            time,
+            shader_type: 9, // Ringed planet shader
+        };
+        render_model(&mut framebuffer, &ringed_uniforms, &planet_vertices, &planet_indices);
 
         // Render Spaceship (TIE Fighter) - Controlled by player with animation
         let animated_rotation = spaceship.get_animated_rotation();
