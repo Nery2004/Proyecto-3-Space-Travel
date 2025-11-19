@@ -49,15 +49,15 @@ impl Camera {
         }
     }
 
-    fn get_view_matrix(&self, target: &Vec3) -> Mat4 {
-        let yaw_rad = self.yaw.to_radians();
+    fn get_view_matrix(&self, target: &Vec3, ship_yaw: f32) -> Mat4 {
+        let combined_yaw = (self.yaw + ship_yaw).to_radians();
         let pitch_rad = self.pitch.to_radians();
         
         // Calcular posición de la cámara alrededor de la nave
         let camera_pos = Vec3::new(
-            target.x + self.distance * yaw_rad.cos() * pitch_rad.cos(),
+            target.x + self.distance * combined_yaw.cos() * pitch_rad.cos(),
             target.y + self.distance * pitch_rad.sin(),
-            target.z + self.distance * yaw_rad.sin() * pitch_rad.cos(),
+            target.z + self.distance * combined_yaw.sin() * pitch_rad.cos(),
         );
         
         look_at(&camera_pos, target, &Vec3::new(0.0, 1.0, 0.0))
@@ -83,6 +83,8 @@ struct Spaceship {
     tilt_z: f32, // Inclinación frontal (pitch)
     target_tilt_x: f32,
     target_tilt_z: f32,
+    camera_yaw: f32, // Ángulo de la cámara que sigue a la nave
+    target_camera_yaw: f32,
 }
 
 impl Spaceship {
@@ -90,12 +92,13 @@ impl Spaceship {
         Self {
             position,
             rotation: Vec3::new(0.0, 90.0, 0.0),
-
             speed: 0.15,
             tilt_x: 0.0,
             tilt_z: 0.0,
             target_tilt_x: 0.0,
             target_tilt_z: 0.0,
+            camera_yaw: 0.0,
+            target_camera_yaw: 0.0,
         }
     }
 
@@ -112,11 +115,13 @@ impl Spaceship {
     fn move_left(&mut self) {
         self.position.x -= self.speed; // Mover a la izquierda (X negativo)
         self.target_tilt_x = -0.2; // Inclinación a la izquierda
+        self.target_camera_yaw = -15.0; // Rotar cámara a la izquierda
     }
 
     fn move_right(&mut self) {
         self.position.x += self.speed; // Mover a la derecha (X positivo)
         self.target_tilt_x = 0.2; // Inclinación a la derecha
+        self.target_camera_yaw = 15.0; // Rotar cámara a la derecha
     }
 
     fn update_animation(&mut self) {
@@ -125,9 +130,13 @@ impl Spaceship {
         self.tilt_x += (self.target_tilt_x - self.tilt_x) * lerp_factor;
         self.tilt_z += (self.target_tilt_z - self.tilt_z) * lerp_factor;
         
+        // Suavizar rotación de cámara
+        self.camera_yaw += (self.target_camera_yaw - self.camera_yaw) * lerp_factor;
+        
         // Retornar gradualmente a posición neutral
         self.target_tilt_x *= 0.9;
         self.target_tilt_z *= 0.9;
+        self.target_camera_yaw *= 0.9;
     }
 
     fn get_animated_rotation(&self) -> Vec3 {
@@ -344,7 +353,7 @@ fn main() {
             camera.zoom(scroll.1);
         }
 
-        let view_matrix = camera.get_view_matrix(&spaceship.position);
+        let view_matrix = camera.get_view_matrix(&spaceship.position, spaceship.camera_yaw);
 
         // Render Sun (center, no rotation, much bigger size)
         let sun_rotation = Vec3::new(0.0, 0.0, 0.0); // No rotation
