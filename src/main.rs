@@ -30,73 +30,111 @@ pub struct Uniforms {
 }
 
 struct Camera {
-    position: Vec3,
     yaw: f32,
     pitch: f32,
-    speed: f32,
+    distance: f32, // Distancia desde la nave
+    min_distance: f32,
+    max_distance: f32,
 }
 
 impl Camera {
-    fn new(position: Vec3) -> Self {
+    fn new() -> Self {
         Self {
-            position,
-            yaw: -90.0,
-            pitch: 0.0,
-            speed: 0.1,
+            yaw: 45.0, // Ángulo inicial alrededor de la nave
+            pitch: 20.0, // Ángulo de elevación inicial
+            distance: 5.0, // Distancia por defecto (tercera persona)
+            min_distance: 1.5, // Zoom mínimo para ver la nave completa
+            max_distance: 8.0, // Máximo zoom out reducido
         }
     }
 
-    fn get_direction(&self) -> Vec3 {
+    fn get_view_matrix(&self, target: &Vec3) -> Mat4 {
         let yaw_rad = self.yaw.to_radians();
         let pitch_rad = self.pitch.to_radians();
         
-        Vec3::new(
-            yaw_rad.cos() * pitch_rad.cos(),
-            pitch_rad.sin(),
-            yaw_rad.sin() * pitch_rad.cos(),
-        ).normalize()
-    }
-
-    fn get_view_matrix(&self) -> Mat4 {
-        let direction = self.get_direction();
-        let target = self.position + direction;
-        look_at(&self.position, &target, &Vec3::new(0.0, 1.0, 0.0))
+        // Calcular posición de la cámara alrededor de la nave
+        let camera_pos = Vec3::new(
+            target.x + self.distance * yaw_rad.cos() * pitch_rad.cos(),
+            target.y + self.distance * pitch_rad.sin(),
+            target.z + self.distance * yaw_rad.sin() * pitch_rad.cos(),
+        );
+        
+        look_at(&camera_pos, target, &Vec3::new(0.0, 1.0, 0.0))
     }
 
     fn update_rotation(&mut self, delta_x: f32, delta_y: f32) {
-        self.yaw += delta_x * 0.1;
-        self.pitch -= delta_y * 0.1;
+        self.yaw += delta_x * 0.3;
+        self.pitch -= delta_y * 0.3;
         self.pitch = self.pitch.clamp(-89.0, 89.0);
     }
 
+    fn zoom(&mut self, delta: f32) {
+        self.distance -= delta * 0.5;
+        self.distance = self.distance.clamp(self.min_distance, self.max_distance);
+    }
+}
+
+struct Spaceship {
+    position: Vec3,
+    rotation: Vec3,
+    speed: f32,
+    tilt_x: f32, // Inclinación lateral (roll)
+    tilt_z: f32, // Inclinación frontal (pitch)
+    target_tilt_x: f32,
+    target_tilt_z: f32,
+}
+
+impl Spaceship {
+    fn new(position: Vec3) -> Self {
+        Self {
+            position,
+            rotation: Vec3::new(0.0, 90.0, 0.0),
+
+            speed: 0.15,
+            tilt_x: 0.0,
+            tilt_z: 0.0,
+            target_tilt_x: 0.0,
+            target_tilt_z: 0.0,
+        }
+    }
+
     fn move_forward(&mut self) {
-        let direction = self.get_direction();
-        self.position += direction * self.speed;
+        self.position.z -= self.speed; // Mover hacia arriba (Z negativo)
+        self.target_tilt_z = -0.15; // Inclinación hacia adelante
     }
 
     fn move_backward(&mut self) {
-        let direction = self.get_direction();
-        self.position -= direction * self.speed;
+        self.position.z += self.speed; // Mover hacia abajo (Z positivo)
+        self.target_tilt_z = 0.1; // Inclinación hacia atrás
     }
 
     fn move_left(&mut self) {
-        let direction = self.get_direction();
-        let right = direction.cross(&Vec3::new(0.0, 1.0, 0.0)).normalize();
-        self.position -= right * self.speed;
+        self.position.x -= self.speed; // Mover a la izquierda (X negativo)
+        self.target_tilt_x = -0.2; // Inclinación a la izquierda
     }
 
     fn move_right(&mut self) {
-        let direction = self.get_direction();
-        let right = direction.cross(&Vec3::new(0.0, 1.0, 0.0)).normalize();
-        self.position += right * self.speed;
+        self.position.x += self.speed; // Mover a la derecha (X positivo)
+        self.target_tilt_x = 0.2; // Inclinación a la derecha
     }
 
-    fn move_up(&mut self) {
-        self.position.y += self.speed;
+    fn update_animation(&mut self) {
+        // Suavizar la inclinación con interpolación
+        let lerp_factor = 0.1;
+        self.tilt_x += (self.target_tilt_x - self.tilt_x) * lerp_factor;
+        self.tilt_z += (self.target_tilt_z - self.tilt_z) * lerp_factor;
+        
+        // Retornar gradualmente a posición neutral
+        self.target_tilt_x *= 0.9;
+        self.target_tilt_z *= 0.9;
     }
 
-    fn move_down(&mut self) {
-        self.position.y -= self.speed;
+    fn get_animated_rotation(&self) -> Vec3 {
+        Vec3::new(
+            self.rotation.x + self.tilt_z,
+            self.rotation.y,
+            self.rotation.z + self.tilt_x,
+        )
     }
 }
 
@@ -223,27 +261,29 @@ fn main() {
     let projection_matrix = perspective(WIDTH as f32 / HEIGHT as f32, 45.0 * PI / 180.0, 0.1, 100.0);
     let viewport_matrix = create_viewport_matrix(WIDTH as f32, HEIGHT as f32);
 
-    let mut camera = Camera::new(Vec3::new(0.0, 4.0, 15.0));
+    let mut camera = Camera::new();
+    let mut spaceship = Spaceship::new(Vec3::new(6.0, 4.0, 9.0));
     let mut time = 0.0;
     let mut last_mouse_pos: Option<(f32, f32)> = None;
 
     println!("Controles:");
-    println!("  WASD: Mover cámara");
-    println!("  Space/Shift: Subir/Bajar");
-    println!("  Mouse: Rotar cámara");
+    println!("  WASD: Mover nave");
+    println!("  Click derecho + Mouse: Rotar cámara alrededor de la nave");
+    println!("  Scroll: Zoom in/out (primera/tercera persona)");
     println!("  ESC: Salir");
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         framebuffer.clear();
         time += 0.01;
 
-        // Camera movement controls
-        if window.is_key_down(Key::W) { camera.move_forward(); }
-        if window.is_key_down(Key::S) { camera.move_backward(); }
-        if window.is_key_down(Key::A) { camera.move_left(); }
-        if window.is_key_down(Key::D) { camera.move_right(); }
-        if window.is_key_down(Key::Space) { camera.move_up(); }
-        if window.is_key_down(Key::LeftShift) { camera.move_down(); }
+        // Spaceship movement controls
+        if window.is_key_down(Key::W) { spaceship.move_forward(); }
+        if window.is_key_down(Key::S) { spaceship.move_backward(); }
+        if window.is_key_down(Key::A) { spaceship.move_left(); }
+        if window.is_key_down(Key::D) { spaceship.move_right(); }
+
+        // Actualizar animación de la nave
+        spaceship.update_animation();
 
         // Mouse camera control - solo cuando se presiona botón derecho
         if window.get_mouse_down(minifb::MouseButton::Right) {
@@ -260,7 +300,12 @@ fn main() {
             last_mouse_pos = None;
         }
 
-        let view_matrix = camera.get_view_matrix();
+        // Scroll wheel zoom control
+        if let Some(scroll) = window.get_scroll_wheel() {
+            camera.zoom(scroll.1);
+        }
+
+        let view_matrix = camera.get_view_matrix(&spaceship.position);
 
         // Render Sun (center, no rotation, much bigger size)
         let sun_rotation = Vec3::new(0.0, 0.0, 0.0); // No rotation
@@ -375,17 +420,16 @@ fn main() {
         };
         render_model(&mut framebuffer, &volcanic_uniforms, &planet_vertices, &planet_indices);
 
-        // Render Spaceship (TIE Fighter) - Static position
-        let nave_pos = Vec3::new(6.0, 4.0, 9.0); // Posición fija más alejada y arriba
-        let nave_rotation = Vec3::new(0.0, PI * 0.75, 0.0); // Ángulo fijo
-        let nave_model = create_model_matrix(nave_pos, 0.3, nave_rotation);
+        // Render Spaceship (TIE Fighter) - Controlled by player with animation
+        let animated_rotation = spaceship.get_animated_rotation();
+        let nave_model = create_model_matrix(spaceship.position, 0.3, animated_rotation);
         let nave_uniforms = Uniforms {
             model_matrix: nave_model,
             view_matrix,
             projection_matrix,
             viewport_matrix,
             time,
-            shader_type: 3, // No shader (default color)
+            shader_type: 3, // Spaceship shader
         };
         render_model(&mut framebuffer, &nave_uniforms, &nave_vertices, &nave_indices);
 
