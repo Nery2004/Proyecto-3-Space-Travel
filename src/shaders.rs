@@ -273,66 +273,9 @@ pub fn shade_gas_giant(point: Vec3, time: f32) -> Vec3 {
     color.map(|x| x.max(0.0).min(1.0))
 }
 
-pub fn shade_spaceship(point: Vec3, _time: f32) -> Vec3 {
-    let p = point;
-
-    // ================================
-    // PANELES LATERALES NEGROS (ALAS HEXAGONALES DEL TIE FIGHTER)
-    // ================================
-    
-    let x_abs = p.x.abs();
-    let y_abs = p.y.abs();
-    let z_abs = p.z.abs();
-    
-    // Detectar si estamos en la región de los paneles laterales
-    // Los paneles están en los extremos laterales (X grande)
-    if x_abs > 1.0 && y_abs < 1.5 && z_abs < 1.5 {
-        // Calcular distancia a los bordes para crear marcos
-        let dist_to_y_edge = 1.5 - y_abs;
-        let dist_to_z_edge = 1.5 - z_abs;
-        let edge_distance = dist_to_y_edge.min(dist_to_z_edge);
-        
-        // Sistema de marcos: cuanto MÁS CERCA del borde, más claro el gris
-        if edge_distance < 0.05 {
-            // Marco exterior - muy cerca del borde - gris claro
-            return Vec3::new(0.65, 0.65, 0.65);
-        } else if edge_distance < 0.10 {
-            // Marco medio - gris medio
-            return Vec3::new(0.50, 0.50, 0.50);
-        } else if edge_distance < 0.15 {
-            // Marco interior - gris oscuro
-            return Vec3::new(0.35, 0.35, 0.35);
-        } else {
-            // Centro del panel - NEGRO (panel solar)
-            return Vec3::new(0.03, 0.03, 0.03);
-        }
-    }
-
-    // ================================
-    // CABINA ESFÉRICA (gris medio)
-    // ================================
-    let distance = (p.x * p.x + p.y * p.y + p.z * p.z).sqrt();
-    if distance < 0.85 {
-        return Vec3::new(0.60, 0.60, 0.60);
-    }
-
-    // ================================
-    // VENTANA FRONTAL NEGRA
-    // ================================
-    if p.z < -0.75 && distance < 1.0 {
-        return Vec3::new(0.1, 0.1, 0.1);
-    }
-
-    // ================================
-    // CONECTORES Y PIEZAS ESTRUCTURALES
-    // ================================
-    // Conectores entre cabina y paneles (cilindros grises)
-    if p.x.abs() < 0.95 && p.x.abs() > 0.70 && p.y.abs() < 0.35 && p.z.abs() < 0.35 {
-        return Vec3::new(0.55, 0.55, 0.55);
-    }
-
-    // Color genérico para otras piezas
-    Vec3::new(0.50, 0.50, 0.50)
+pub fn shade_spaceship(_point: Vec3, _time: f32) -> Vec3 {
+    // Nave completamente gris uniforme
+    Vec3::new(0.5, 0.5, 0.5)
 }
 
 pub fn shade_ice_planet(point: Vec3, time: f32) -> Vec3 {
