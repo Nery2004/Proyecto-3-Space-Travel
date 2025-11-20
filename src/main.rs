@@ -43,9 +43,9 @@ impl Camera {
         Self {
             yaw: 62.0, // Cámara directamente detrás de la nave
             pitch: 10.0, // Ángulo de elevación suave
-            distance: 5.0, // Distancia por defecto (tercera persona)
+            distance: 8.0, // Distancia por defecto (tercera persona) - más lejos
             min_distance: 1.5, // Zoom mínimo para ver la nave completa
-            max_distance: 8.0, // Máximo zoom out reducido
+            max_distance: 15.0, // Máximo zoom out aumentado
         }
     }
 
@@ -322,7 +322,7 @@ fn main() {
     let viewport_matrix = create_viewport_matrix(WIDTH as f32, HEIGHT as f32);
 
     let mut camera = Camera::new();
-    let mut spaceship = Spaceship::new(Vec3::new(6.0, 4.0, 9.0));
+    let mut spaceship = Spaceship::new(Vec3::new(20.0, 10.0, 25.0));
     let mut time = 0.0;
     let mut last_mouse_pos: Option<(f32, f32)> = None;
 
@@ -348,6 +348,20 @@ fn main() {
         // Actualizar animación de la nave
         spaceship.update_animation();
 
+        // Mouse camera rotation with right click
+        if let Some((mouse_x, mouse_y)) = window.get_mouse_pos(minifb::MouseMode::Discard) {
+            if window.get_mouse_down(minifb::MouseButton::Right) {
+                if let Some((last_x, last_y)) = last_mouse_pos {
+                    let delta_x = mouse_x - last_x;
+                    let delta_y = mouse_y - last_y;
+                    camera.update_rotation(delta_x, delta_y);
+                }
+                last_mouse_pos = Some((mouse_x, mouse_y));
+            } else {
+                last_mouse_pos = None;
+            }
+        }
+
         // Scroll wheel zoom control
         if let Some(scroll) = window.get_scroll_wheel() {
             camera.zoom(scroll.1);
@@ -357,7 +371,7 @@ fn main() {
 
         // Render Sun (center, no rotation, much bigger size)
         let sun_rotation = Vec3::new(0.0, 0.0, 0.0); // No rotation
-        let sun_model = create_model_matrix(Vec3::new(0.0, 0.0, 0.0), 5.0, sun_rotation);
+        let sun_model = create_model_matrix(Vec3::new(0.0, 0.0, 0.0), 8.0, sun_rotation);
         let sun_uniforms = Uniforms {
             model_matrix: sun_model,
             view_matrix,
@@ -370,7 +384,7 @@ fn main() {
 
         // Render Rocky Planet (orbiting)
         let rocky_angle = time * 0.3;
-        let rocky_orbit_radius = 8.0;
+        let rocky_orbit_radius = 45.0;
         let rocky_pos = Vec3::new(
             rocky_angle.cos() * rocky_orbit_radius,
             0.0,
@@ -390,7 +404,7 @@ fn main() {
 
         // Render Gas Giant (orbiting in opposite direction)
         let gas_angle = time * 0.15;
-        let gas_orbit_radius = 12.0;
+        let gas_orbit_radius = 60.0;
         let gas_pos = Vec3::new(
             -gas_angle.cos() * gas_orbit_radius,
             0.5,
@@ -410,7 +424,7 @@ fn main() {
 
         // Render Ice Planet (orbiting)
         let ice_angle = time * 0.25;
-        let ice_orbit_radius = 10.0;
+        let ice_orbit_radius = 52.0;
         let ice_pos = Vec3::new(
             (ice_angle + PI * 0.5).cos() * ice_orbit_radius,
             -0.3,
@@ -430,7 +444,7 @@ fn main() {
 
         // Render Desert Planet (orbiting)
         let desert_angle = time * 0.35;
-        let desert_orbit_radius = 32.0;
+        let desert_orbit_radius = 35.0;
         let desert_pos = Vec3::new(
             (desert_angle + PI).cos() * desert_orbit_radius,
             0.2,
@@ -470,7 +484,7 @@ fn main() {
 
         // Render Ocean Planet (orbiting)
         let ocean_angle = time * 0.28;
-        let ocean_orbit_radius = 45.0;
+        let ocean_orbit_radius = 48.0;
         let ocean_pos = Vec3::new(
             (ocean_angle + PI * 0.25).cos() * ocean_orbit_radius,
             1.0,
@@ -490,7 +504,7 @@ fn main() {
 
         // Render Purple Alien Planet (orbiting)
         let purple_angle = time * 0.2;
-        let purple_orbit_radius = 55.0;
+        let purple_orbit_radius = 56.0;
         let purple_pos = Vec3::new(
             (purple_angle + PI * 0.75).cos() * purple_orbit_radius,
             -1.2,
