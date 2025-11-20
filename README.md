@@ -191,6 +191,12 @@ cargo run --release
 
 **Nota**: El modo release es altamente recomendado debido a las optimizaciones de compilador que mejoran significativamente el rendimiento del rasterizador.
 
+## Demostración en Video
+
+Para ver el proyecto en acción, visita: [YouTube](https://www.youtube.com/watch?v=TU_ENLACE_AQUI)
+
+*Reemplaza `https://youtu.be/KvPBKJ-Gi5M` con el ID de tu video de YouTube*
+
 ## Educativo
 
 Este proyecto fue desarrollado como parte de un curso de Gráficas por Computadora, demostrando:
